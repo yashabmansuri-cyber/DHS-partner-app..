@@ -1,0 +1,60 @@
+name: Build DHS Partner APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "DHS_Partner_v12.zip.part*"
+      - ".github/workflows/main.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Rebuild original ZIP from 5 parts
+        shell: bash
+        run: |
+          set -e
+          cat DHS_Partner_v12.zip.part01 \
+              DHS_Partner_v12.zip.part02 \
+              DHS_Partner_v12.zip.part03 \
+              DHS_Partner_v12.zip.part04 \
+              DHS_Partner_v12.zip.part05 > DHS_Partner_v12.zip
+
+          echo "e0d8d9b108035ce95b264a22fbf4782dc585230b2b13074c51247429062451bc  DHS_Partner_v12.zip" | sha256sum -c -
+
+      - name: Extract project
+        shell: bash
+        run: |
+          set -e
+          mkdir -p project
+          unzip -q DHS_Partner_v12.zip -d project
+
+      - name: Build debug APK
+        shell: bash
+        working-directory: project
+        run: |
+          set -e
+          gradle --no-daemon --stacktrace assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DHS-Partner-APK
+          path: project/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
